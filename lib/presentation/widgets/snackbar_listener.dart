@@ -5,7 +5,7 @@ import '../../business_logic/app_launch/app_launch_state.dart';
 import '../../business_logic/installation/installation_cubit.dart';
 import '../../business_logic/installation/installation_state.dart';
 import 'storge_error.dart';
-import 'package:flatpak_flutter_example/app_router.dart';
+import 'package:flutter_remote_manager/app_router.dart';
 
 class SnackbarListener extends StatelessWidget {
   final Widget child;

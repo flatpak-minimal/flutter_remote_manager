@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:flatpak_flutter_example/data/models/remote_model.dart';
-import 'package:flatpak_flutter/src/messages.g.dart' as pigeon;
+import 'package:flutter_remote_manager/data/models/remote_model.dart';
 
 class Installation extends Equatable {
   final String id;
@@ -42,19 +41,32 @@ class InstallationModel extends Installation {
     required super.remotes,
   });
 
-  factory InstallationModel.fromPigeon(pigeon.Installation installation) {
+  /// Build the "installation" the app displays for a given
+  /// `FlatpakClient` scope (system or user).
+  ///
+  /// `flatpak_dart` has no equivalent of the old pigeon `Installation`
+  /// type - it doesn't enumerate `/etc/flatpak/installations.d/*.conf`
+  /// or expose path/priority/default-language configuration at all; it
+  /// only gives you a client scoped to "system", "user", or an explicit
+  /// path via `FlatpakClient.at()`. This synthesizes a single logical
+  /// installation per scope from what's actually available (its remotes).
+  factory InstallationModel.forScope({
+    required bool isUser,
+    required List<RemoteModel> remotes,
+  }) {
     return InstallationModel(
-      id: installation.id,
-      displayName: installation.displayName,
-      path: installation.path,
-      noInteraction: installation.noInteraction,
-      isUser: installation.isUser,
-      priority: installation.priority,
-      defaultLanguages: List<String>.from(installation.defaultLanguages),
-      defaultLocale: List<String>.from(installation.defaultLocale),
-      remotes: installation.remotes
-          .map((r) => RemoteModel.fromPigeon(r))
-          .toList(),
+      id: isUser ? 'user' : 'default',
+      displayName: isUser ? 'User' : 'System',
+      // flatpak_dart does not expose the on-disk installation path;
+      // callers needing it should read $XDG_DATA_HOME/flatpak (user) or
+      // /var/lib/flatpak (system) directly.
+      path: '',
+      noInteraction: false,
+      isUser: isUser,
+      priority: isUser ? 0 : 1,
+      defaultLanguages: const [],
+      defaultLocale: const [],
+      remotes: remotes,
     );
   }
 }

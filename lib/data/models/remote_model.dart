@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:flatpak_flutter/src/messages.g.dart' as pigeon;
+import 'package:flatpak_dart/flatpak_dart.dart';
 
 class Remote extends Equatable {
   final String name;
@@ -71,7 +71,14 @@ class RemoteModel extends Remote {
     required super.prio,
   });
 
-  factory RemoteModel.fromPigeon(pigeon.Remote remote) {
+  /// Build from a `flatpak_dart` [FlatpakRemote].
+  ///
+  /// `flatpak_dart` does not expose everything the old pigeon `Remote`
+  /// type carried (no `mainRef`, `icon`, `appstreamTimestamp`,
+  /// `appstreamDir`, or `noEnumerate` - those were libostree/libflatpak
+  /// internals the old native plugin happened to surface). Those fields
+  /// are kept on [Remote] for API stability but default to empty/false.
+  factory RemoteModel.fromFlatpakRemote(FlatpakRemote remote) {
     return RemoteModel(
       name: remote.name,
       url: remote.url,
@@ -80,42 +87,37 @@ class RemoteModel extends Remote {
       comment: remote.comment,
       description: remote.description,
       homepage: remote.homepage,
-      icon: remote.icon,
+      icon: '',
       defaultBranch: remote.defaultBranch,
-      mainRef: remote.mainRef,
-      remoteType: remote.remoteType,
+      mainRef: '',
+      remoteType: remote.remoteType.name,
       filter: remote.filter,
-      appstreamTimestamp: remote.appstreamTimestamp,
-      appstreamDir: remote.appstreamDir,
+      appstreamTimestamp: '',
+      appstreamDir: '',
       gpgVerify: remote.gpgVerify,
-      noEnumerate: remote.noEnumerate,
+      noEnumerate: false,
       noDeps: remote.noDeps,
       disabled: remote.disabled,
-      prio: remote.prio,
+      prio: remote.priority,
     );
   }
 
-  pigeon.Remote toPigeon() {
-    return pigeon.Remote(
-      name: name,
+  /// Convert to a `flatpak_dart` [FlatpakRemoteConfig] for
+  /// `FlatpakRemoteManager.add`/`.modify`. [name] is passed separately to
+  /// those calls; it isn't part of the config payload itself.
+  FlatpakRemoteConfig toRemoteConfig() {
+    return FlatpakRemoteConfig(
       url: url,
-      collectionId: collectionId,
-      title: title,
-      comment: comment,
-      description: description,
-      homepage: homepage,
-      icon: icon,
-      defaultBranch: defaultBranch,
-      mainRef: mainRef,
-      remoteType: remoteType,
-      filter: filter,
-      appstreamTimestamp: appstreamTimestamp,
-      appstreamDir: appstreamDir,
+      title: title.isEmpty ? null : title,
+      comment: comment.isEmpty ? null : comment,
+      homepage: homepage.isEmpty ? null : homepage,
+      defaultBranch: defaultBranch.isEmpty ? null : defaultBranch,
+      collectionId: collectionId.isEmpty ? null : collectionId,
+      filter: filter.isEmpty ? null : filter,
+      priority: prio,
       gpgVerify: gpgVerify,
-      noEnumerate: noEnumerate,
-      noDeps: noDeps,
       disabled: disabled,
-      prio: prio,
+      noDeps: noDeps,
     );
   }
 }

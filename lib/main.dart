@@ -7,5 +7,11 @@ void main() async {
 
   await initializeDependencies();
 
+  // Release the flatpak_dart FlatpakClient native resources on process
+  // exit (SIGINT/SIGTERM/window close on desktop).
+  AppLifecycleListener(onDetach: () async {
+    await resetDependencies();
+  });
+
   runApp(const FlatpakApp());
 }

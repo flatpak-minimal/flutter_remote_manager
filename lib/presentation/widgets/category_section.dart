@@ -1,4 +1,4 @@
-import 'package:flatpak_flutter_example/responsive.dart';
+import 'package:flutter_remote_manager/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 

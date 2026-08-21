@@ -1,8 +1,6 @@
-import 'package:flatpak_flutter_example/business_logic/app_status/app_status_cubit.dart';
-import 'package:flatpak_flutter_example/business_logic/system_info/system_info_cubit.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_remote_manager/business_logic/app_status/app_status_cubit.dart';
+import 'package:flutter_remote_manager/business_logic/system_info/system_info_cubit.dart';
 import 'package:get_it/get_it.dart';
-import 'package:flatpak_flutter/src/messages.g.dart';
 
 import '../../data/repositories/flatpak_repository_impl.dart';
 
@@ -18,33 +16,30 @@ import 'data/repositories/flatpak_repository.dart';
 final sl = GetIt.instance;
 
 Future<void> initializeDependencies() async {
-  const methodChannel = MethodChannel('flatpak_flutter');
-  sl.registerLazySingleton<MethodChannel>(() => methodChannel);
-
-  sl.registerLazySingleton<FlatpakApi>(() => FlatpakApi());
-
-  const eventChannel = EventChannel('flutter.io/flatpakPlugin/flatpakEvents');
-  const permissionEventChannel = EventChannel('flutter.io/flatpakPlugin/accessEvents');
+  // `flatpak_dart` clients: `user` is the primary client this app drives
+  // everything through (install/uninstall/update/launch/browse), matching
+  // how a per-user app store normally operates without root. `system` is
+  // only consulted to list the system installation's remotes for the
+  // system-info screen.
+  final clients = FlatpakClients.create();
+  sl.registerSingleton<FlatpakClients>(clients);
 
   // Data Sources
-  sl.registerLazySingleton<FlatpakLocalDataSource>(
-        () => FlatpakLocalDataSourceImpl(sl()),
+  sl.registerLazySingleton<FlatpakEventDataSource>(
+    () => FlatpakEventDataSourceImpl(),
   );
 
-  sl.registerLazySingleton<FlatpakEventDataSource>(
-        () => FlatpakEventDataSourceImpl(),
+  sl.registerLazySingleton<FlatpakLocalDataSource>(
+    () => FlatpakLocalDataSourceImpl(sl(), sl()),
   );
 
   sl.registerLazySingleton<FlatpakPermissionDataSource>(
-        () => FlatpakPermissionDataSource(
-      methodChannel: methodChannel,
-      permissionEventChannel: permissionEventChannel,
-    ),
+    () => FlatpakPermissionDataSource(),
   );
 
   // Repository
   sl.registerLazySingleton<FlatpakRepository>(
-        () => FlatpakRepositoryImpl(
+    () => FlatpakRepositoryImpl(
       localDataSource: sl(),
       eventDataSource: sl(),
       permissionDataSource: sl(),
@@ -53,38 +48,39 @@ Future<void> initializeDependencies() async {
 
   // Permission listener
   sl.registerLazySingleton<PermissionListenerBloc>(
-        () => PermissionListenerBloc(repository: sl()),
+    () => PermissionListenerBloc(repository: sl()),
   );
 
   sl.registerLazySingleton<AppStatusCubit>(
-        () => AppStatusCubit(repository: sl()),
+    () => AppStatusCubit(repository: sl()),
   );
 
   // Installation cubit
   sl.registerLazySingleton<InstallationCubit>(
-        () => InstallationCubit(
-      repository: sl(),
-      appStatusCubit: sl(),
-    ),
+    () => InstallationCubit(repository: sl(), appStatusCubit: sl()),
   );
 
   // Discovery cubit
   sl.registerLazySingleton<DiscoveryCubit>(
-        () => DiscoveryCubit(flatpakRepository: sl()),
+    () => DiscoveryCubit(flatpakRepository: sl()),
   );
 
   // App launch cubit
   sl.registerLazySingleton<AppLaunchCubit>(
-        () => AppLaunchCubit(repository: sl()),
+    () => AppLaunchCubit(repository: sl()),
   );
 
   // System info cubit
   sl.registerLazySingleton<SystemInfoCubit>(
-        () => SystemInfoCubit(flatpakRepository: sl()),
+    () => SystemInfoCubit(flatpakRepository: sl()),
   );
 }
 
-/// Clean up all singleton instances
+/// Clean up all singleton instances, including releasing the native
+/// `flatpak_dart` client resources (`FlatpakClient.close()`).
 Future<void> resetDependencies() async {
+  if (sl.isRegistered<FlatpakClients>()) {
+    await sl<FlatpakClients>().closeAll();
+  }
   await sl.reset();
 }

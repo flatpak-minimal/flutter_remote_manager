@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
-import 'package:flatpak_flutter/src/messages.g.dart' as pigeon;
+import 'package:flatpak_dart/flatpak_dart.dart';
+
+import '../appstream/appstream_catalog_service.dart';
 
 class Application extends Equatable {
   final String name;
@@ -97,25 +99,67 @@ class ApplicationModel extends Application {
     required super.appdata,
   });
 
-  factory ApplicationModel.fromPigeon(pigeon.Application app) {
+  /// Build from a `flatpak_dart` [FlatpakApplication] (installed app or
+  /// runtime). `flatpak_dart` only surfaces the terse `appdata` fields
+  /// baked into the flatpak metadata file (name/summary/version/icon) -
+  /// [appstream] optionally supplements those with the richer AppStream
+  /// catalog data (description, developer, categories, content rating)
+  /// looked up separately via [AppstreamCatalogService].
+  factory ApplicationModel.fromFlatpakApplication(
+    FlatpakApplication app, {
+    AppstreamComponentInfo? appstream,
+  }) {
+    final info = appstream ?? AppstreamComponentInfo.empty;
+    final ref = app.ref;
     return ApplicationModel(
-      name: app.name,
-      id: app.id,
-      summary: app.summary,
-      version: app.version,
+      name: info.name.isNotEmpty ? info.name : app.appDataName,
+      id: 'app/${ref.name}/${ref.arch}/${ref.branch}',
+      summary: info.summary.isNotEmpty ? info.summary : app.appDataSummary,
+      version: app.appDataVersion,
       origin: app.origin,
-      license: app.license,
+      license: '',
       installedSize: app.installedSize,
-      deployDir: app.deployDir,
-      isCurrent: app.isCurrent,
-      contentRatingType: app.contentRatingType,
-      contentRating: Map<String, dynamic>.from(app.contentRating),
+      deployDir: app.installedPath,
+      isCurrent: app.isCurrentArch,
+      contentRatingType: info.contentRatingType,
+      contentRating: Map<String, dynamic>.from(info.contentRating),
       latestCommit: app.latestCommit,
-      eol: app.eol,
-      eolRebase: app.eolRebase,
-      subpaths: List<String>.from(app.subpaths),
-      metadata: app.metadata,
-      appdata: app.appdata,
+      eol: app.endOfLife ? 'true' : '',
+      eolRebase: app.endOfLifeRebase,
+      subpaths: const [],
+      metadata: encodeMetadataJson(info),
+      appdata: encodeAppdataJson(info),
+    );
+  }
+
+  /// Build from a `flatpak_dart` [FlatpakRef] as returned when browsing a
+  /// remote (`FlatpakRemoteManager.listApps`). Refs carry no appdata at
+  /// all, so all display metadata comes from the AppStream [appstream]
+  /// lookup when available.
+  factory ApplicationModel.fromRemoteRef(
+    FlatpakRef ref, {
+    required String origin,
+    AppstreamComponentInfo? appstream,
+  }) {
+    final info = appstream ?? AppstreamComponentInfo.empty;
+    return ApplicationModel(
+      name: info.name.isNotEmpty ? info.name : ref.name,
+      id: 'app/${ref.name}/${ref.arch}/${ref.branch}',
+      summary: info.summary,
+      version: '',
+      origin: origin,
+      license: '',
+      installedSize: 0,
+      deployDir: '',
+      isCurrent: true,
+      contentRatingType: info.contentRatingType,
+      contentRating: Map<String, dynamic>.from(info.contentRating),
+      latestCommit: ref.commit,
+      eol: '',
+      eolRebase: '',
+      subpaths: const [],
+      metadata: encodeMetadataJson(info),
+      appdata: encodeAppdataJson(info),
     );
   }
 }

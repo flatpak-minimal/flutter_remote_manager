@@ -1,4 +1,4 @@
-name: flatpak_flutter_example
+name: flutter_remote_manager
 description: "An Example Flutter application for the flatpak plugin"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -30,8 +30,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flatpak_flutter:
-    path: ../
+  flatpak_dart:
+    git:
+      url: https://github.com/flatpak-minimal/flatpak_dart.git
+      ref: wip/flutter-ics-testing
+  appstream_dart: ^0.4.2
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -50,7 +53,6 @@ dependencies:
   go_router: ^16.3.0
   dartz: ^0.10.1
   intl: 0.20.2
-  flutter_permission_handler_plus: ^0.1.0
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +64,19 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+
+# The native-assets build-hook packages must move as one set, and this Flutter
+# SDK caps that set at the hooks 1.x generation: hooks 2.x needs meta ^1.19.0
+# while flutter_test pins meta 1.18.0. Everything below follows from that —
+# code_assets must stay 1.0.x (1.2.x extends ProtocolExtension, which hooks 1.x
+# declares as an `interface class`), and native_toolchain_c must stay <=0.18.0
+# (0.19.x reads CodeConfig.sanitizer, added only in code_assets 1.2.x).
+# Revisit the whole block when the Flutter SDK ships meta >=1.19.0.
+dependency_overrides:
+  appstream_dart: ^0.4.2
+  hooks: ^1.0.2
+  code_assets: 1.0.0
+  native_toolchain_c: 0.18.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

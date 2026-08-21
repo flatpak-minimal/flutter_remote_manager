@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'dart:ui';
 import 'dart:convert';
-import 'package:flatpak_flutter_example/business_logic/app_status/app_status_cubit.dart';
-import 'package:flatpak_flutter_example/responsive.dart';
+import 'package:flutter_remote_manager/business_logic/app_status/app_status_cubit.dart';
+import 'package:flutter_remote_manager/responsive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -176,6 +176,12 @@ class _AppCardState extends State<AppCard> with TickerProviderStateMixin {
 
   Widget _buildIcon(double size) {
     final iconPath = widget.iconPath ?? _getIconPath(widget.application);
+    // Decode at the on-screen pixel size (scaled for device pixel ratio)
+    // rather than full resolution - app icons are frequently much larger
+    // than the ~64-128 logical px they're displayed at here, and decoding
+    // full-res per card adds up fast across a scrolling grid/list.
+    final cacheSize = (size * MediaQuery.of(context).devicePixelRatio)
+        .round();
     if (iconPath != null) {
       if (iconPath.startsWith('http')) {
         return Image.network(
@@ -183,6 +189,8 @@ class _AppCardState extends State<AppCard> with TickerProviderStateMixin {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
           errorBuilder: (context, error, stackTrace) {
             return _buildDefaultIcon(size);
           },
@@ -193,6 +201,8 @@ class _AppCardState extends State<AppCard> with TickerProviderStateMixin {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
           errorBuilder: (context, error, stackTrace) {
             return _buildDefaultIcon(size);
           },

@@ -434,12 +434,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   Widget _buildIconImage(String iconPath, double size) {
+    // Decode at the displayed pixel size rather than full resolution.
+    final cacheSize = (size * MediaQuery.of(context).devicePixelRatio)
+        .round();
     if (iconPath.startsWith('http')) {
       return Image.network(
         iconPath,
         width: size,
         height: size,
         fit: BoxFit.cover,
+        cacheWidth: cacheSize,
+        cacheHeight: cacheSize,
         errorBuilder: (context, error, stackTrace) => _buildDefaultIcon(size),
       );
     } else {
@@ -450,6 +455,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
           errorBuilder: (context, error, stackTrace) => _buildDefaultIcon(size),
         );
       }

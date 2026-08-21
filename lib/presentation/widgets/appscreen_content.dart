@@ -11,8 +11,8 @@ import '../../business_logic/app_status/app_status_state.dart';
 import '../../business_logic/installation/installation_cubit.dart';
 import '../../business_logic/installation/installation_state.dart';
 import '../../data/models/application_model.dart';
-import 'package:flatpak_flutter_example/responsive.dart';
-import 'package:flatpak_flutter_example/presentation/widgets/screenshot_widget.dart';
+import 'package:flutter_remote_manager/responsive.dart';
+import 'package:flutter_remote_manager/presentation/widgets/screenshot_widget.dart';
 import 'app_info.dart';
 
 class AppscreenContent extends StatelessWidget {

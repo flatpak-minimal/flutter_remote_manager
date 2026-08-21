@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
-import 'package:flatpak_flutter_example/core/permissions/permission_status.dart';
-import 'package:flatpak_flutter_example/core/permissions/permission_types.dart';
-import 'package:flatpak_flutter_example/data/models/flatpak_permission_model.dart';
+import 'package:flutter_remote_manager/core/permissions/permission_status.dart';
+import 'package:flutter_remote_manager/core/permissions/permission_types.dart';
+import 'package:flutter_remote_manager/data/models/flatpak_permission_model.dart';
 import '../../helpers/errors_exception.dart';
 import '../../helpers/errors_handler.dart';
 import '../data_sources/flatpak_event_data.dart';

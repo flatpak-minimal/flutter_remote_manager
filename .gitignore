@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ivi-homescreen custom-device staging dir (regenerated per run)
+.desktop-homescreen/

@@ -1,51 +1,41 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import '../models/flatpak_permission_model.dart';
 import '../../core/permissions/permission_types.dart';
 
+/// xdg-desktop-portal permission-request bridge.
+///
+/// NOTE: interactive Flatpak sandbox permission prompts (camera,
+/// microphone, filesystem access, etc.) are driven by the
+/// `xdg-desktop-portal` D-Bus interface, not libflatpak. Neither
+/// `flatpak_dart` (a libflatpak FFI bridge) nor `appstream_dart` (an
+/// AppStream XML/SQLite catalog) talk to that portal, so there is
+/// currently no Dart-side replacement for what the old native plugin's
+/// MethodChannel/EventChannel pair did here. This class is kept as a
+/// no-op stub - it preserves the type/method shape that
+/// `FlatpakRepository`, `PermissionListenerBloc`, and the permission
+/// dialog widgets are built against, so none of that call graph has to
+/// change - but it never emits real portal events and every request
+/// resolves as unhandled/false. Wiring a real xdg-desktop-portal client
+/// is out of scope for this migration.
 class FlatpakPermissionDataSource {
-  final MethodChannel _methodChannel;
-  final EventChannel _permissionEventChannel;
-
   StreamController<PermissionEventModel>? _permissionStreamController;
   Stream<PermissionEventModel> get permissionStream =>
-      _permissionStreamController!.stream;
+      _permissionStreamController?.stream ?? const Stream.empty();
 
-  FlatpakPermissionDataSource({
-    required MethodChannel methodChannel,
-    required EventChannel permissionEventChannel,
-  })  : _methodChannel = methodChannel,
-        _permissionEventChannel = permissionEventChannel;
+  FlatpakPermissionDataSource();
 
   void startListening() {
     if (_permissionStreamController != null) {
       debugPrint('[FlatpakPermissionData] Already listening');
       return;
     }
-
-    _permissionStreamController =
-    StreamController<PermissionEventModel>.broadcast();
-
-    _permissionEventChannel.receiveBroadcastStream().listen(
-          (dynamic event) {
-        debugPrint('[FlatpakPermissionData] Received event: $event');
-
-        if (event is Map<Object?, Object?>) {
-          final Map<String, dynamic> eventMap = event.cast<String, dynamic>();
-
-          try {
-            final permissionEvent = PermissionEventModel.fromJson(eventMap);
-            _permissionStreamController!.add(permissionEvent);
-          } catch (e) {
-            debugPrint('[FlatpakPermissionData] Error parsing event: $e');
-          }
-        }
-      },
-      onError: (error) {
-        debugPrint('[FlatpakPermissionData] Stream error: $error');
-      },
+    debugPrint(
+      '[FlatpakPermissionData] Stub started (no xdg-desktop-portal client '
+      'wired up - see class doc comment)',
     );
+    _permissionStreamController =
+        StreamController<PermissionEventModel>.broadcast();
   }
 
   void stopListening() {
@@ -58,95 +48,50 @@ class FlatpakPermissionDataSource {
     required FlatpakPermission permission,
     required bool granted,
   }) async {
-    try {
-      await _methodChannel.invokeMethod('permissionResponse', {
-        'request_id': requestId,
-        'permission': permission.name,
-        'granted': granted,
-      });
-      debugPrint(
-        '[FlatpakPermissionData] Response sent: ${permission.name} -> $granted',
-      );
-    } catch (e) {
-      debugPrint('[FlatpakPermissionData] Error sending response: $e');
-      rethrow;
-    }
+    debugPrint(
+      '[FlatpakPermissionData] respondToPermissionRequest is a no-op stub '
+      '(requestId=$requestId, permission=${permission.name}, '
+      'granted=$granted)',
+    );
   }
 
   Future<Map<FlatpakPermission, bool>> checkPermissions({
     required String appId,
     required List<FlatpakPermission> permissions,
   }) async {
-    try {
-      final result = await _methodChannel.invokeMethod('checkPermissions', {
-        'app_id': appId,
-        'permissions': permissions.map((p) => p.name).toList(),
-      });
-
-      if (result is Map) {
-        final Map<FlatpakPermission, bool> permissionMap = {};
-        result.forEach((key, value) {
-          try {
-            final permission = FlatpakPermission.values.firstWhere(
-                  (p) => p.name == key,
-            );
-            permissionMap[permission] = value as bool;
-          } catch (e) {
-            debugPrint('[FlatpakPermissionData] Unknown permission: $key');
-          }
-        });
-        return permissionMap;
-      }
-
-      return {};
-    } catch (e) {
-      debugPrint('[FlatpakPermissionData] Error checking permissions: $e');
-      return {};
-    }
+    debugPrint(
+      '[FlatpakPermissionData] checkPermissions is a no-op stub for $appId',
+    );
+    return {};
   }
 
   Future<bool> revokePermission({
     required String appId,
     required FlatpakPermission permission,
   }) async {
-    try {
-      final result = await _methodChannel.invokeMethod('revokePermission', {
-        'app_id': appId,
-        'permission': permission.name,
-      });
-      return result as bool? ?? false;
-    } catch (e) {
-      debugPrint('[FlatpakPermissionData] Error revoking permission: $e');
-      return false;
-    }
+    debugPrint(
+      '[FlatpakPermissionData] revokePermission is a no-op stub '
+      '($appId / ${permission.name})',
+    );
+    return false;
   }
 
   Future<Map<String, dynamic>?> getSystemStorage() async {
-    try {
-      final result = await _methodChannel.invokeMethod('getSystemStorage');
-      if (result != null && result is Map) {
-        return Map<String, dynamic>.from(result);
-      }
-      return null;
-    } catch (e) {
-      debugPrint('[FlatpakPermissionData] Error getting system storage: $e');
-      return null;
-    }
+    debugPrint(
+      '[FlatpakPermissionData] getSystemStorage is a no-op stub - it used the '
+      'removed native MethodChannel and has no libflatpak equivalent',
+    );
+    return null;
   }
 
   Future<bool> grantPermission({
     required String appId,
     required FlatpakPermission permission,
   }) async {
-    try {
-      final result = await _methodChannel.invokeMethod('grantPermission', {
-        'app_id': appId,
-        'permission': permission.name,
-      });
-      return result as bool? ?? false;
-    } catch (e) {
-      debugPrint('[FlatpakPermissionData] Error granting permission: $e');
-      return false;
-    }
+    debugPrint(
+      '[FlatpakPermissionData] grantPermission is a no-op stub '
+      '($appId / ${permission.name})',
+    );
+    return false;
   }
 }

@@ -1,8 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flatpak_flutter_example/app_theme.dart';
-import 'package:flatpak_flutter_example/responsive.dart';
+import 'package:flutter_remote_manager/app_theme.dart';
+import 'package:flutter_remote_manager/responsive.dart';
 import '../screens/profile_screen.dart';
 
 class AppTopBar extends StatelessWidget implements PreferredSizeWidget {

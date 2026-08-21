@@ -622,9 +622,14 @@ class _InstalledScreenState extends State<InstalledScreen>
   }
 
   Widget _buildIconImage(String iconPath) {
+    // Fixed 52x52 display size - decode at that size (scaled for device
+    // pixel ratio) instead of the source image's full resolution.
+    final cacheSize = (52 * MediaQuery.of(context).devicePixelRatio).round();
     if (iconPath.startsWith('http')) {
       return Image.network(
         iconPath, width: 52, height: 52, fit: BoxFit.cover,
+        cacheWidth: cacheSize,
+        cacheHeight: cacheSize,
         errorBuilder: (_, __, ___) => _buildDefaultIcon(),
       );
     } else {
@@ -632,6 +637,8 @@ class _InstalledScreenState extends State<InstalledScreen>
       if (file.existsSync()) {
         return Image.file(
           file, width: 52, height: 52, fit: BoxFit.cover,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
           errorBuilder: (_, __, ___) => _buildDefaultIcon(),
         );
       }

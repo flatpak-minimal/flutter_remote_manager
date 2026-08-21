@@ -1,8 +1,8 @@
-import 'package:flatpak_flutter_example/business_logic/app_status/app_status_cubit.dart';
-import 'package:flatpak_flutter_example/business_logic/system_info/system_info_cubit.dart';
-import 'package:flatpak_flutter_example/presentation/widgets/app_status.dart';
-import 'package:flatpak_flutter_example/presentation/widgets/permission_handler_wrapper.dart';
-import 'package:flatpak_flutter_example/presentation/widgets/snackbar_listener.dart';
+import 'package:flutter_remote_manager/business_logic/app_status/app_status_cubit.dart';
+import 'package:flutter_remote_manager/business_logic/system_info/system_info_cubit.dart';
+import 'package:flutter_remote_manager/presentation/widgets/app_status.dart';
+import 'package:flutter_remote_manager/presentation/widgets/permission_handler_wrapper.dart';
+import 'package:flutter_remote_manager/presentation/widgets/snackbar_listener.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'app_router.dart';

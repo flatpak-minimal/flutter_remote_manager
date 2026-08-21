@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flatpak_flutter_example/responsive.dart';
+import 'package:flutter_remote_manager/responsive.dart';
 
 class AppscreenHead extends StatelessWidget implements PreferredSizeWidget {
   const AppscreenHead({super.key, required this.appname});

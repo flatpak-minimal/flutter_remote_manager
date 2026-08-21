@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:flatpak_flutter_example/data/models/application_model.dart';
+import 'package:flutter_remote_manager/data/models/application_model.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -198,6 +198,11 @@ class _AppIconsState extends State<AppsIcons> {
 
   Widget _buildIcon(double size, Application app) {
     final iconPath = _getIconPath(app);
+    // Decode at the displayed pixel size instead of full resolution - these
+    // are fixed 64x64 glass icons, so there's no reason to decode a
+    // possibly much larger source image every time this widget builds.
+    final cacheSize = (size * MediaQuery.of(context).devicePixelRatio)
+        .round();
     if (iconPath != null) {
       if (iconPath.startsWith('http')) {
         return Image.network(
@@ -205,12 +210,16 @@ class _AppIconsState extends State<AppsIcons> {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
           errorBuilder: (context, error, stackTrace) {
             return Image.asset(
               'assets/icons/default_app_icon.png',
               width: size,
               height: size,
               fit: BoxFit.cover,
+              cacheWidth: cacheSize,
+              cacheHeight: cacheSize,
             );
           },
         );
@@ -220,6 +229,8 @@ class _AppIconsState extends State<AppsIcons> {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
         );
       } else {
         return Image.file(
@@ -227,12 +238,16 @@ class _AppIconsState extends State<AppsIcons> {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
           errorBuilder: (context, error, stackTrace) {
             return Image.asset(
               'assets/icons/default_app_icon.png',
               width: size,
               height: size,
               fit: BoxFit.cover,
+              cacheWidth: cacheSize,
+              cacheHeight: cacheSize,
             );
           },
         );
@@ -243,6 +258,8 @@ class _AppIconsState extends State<AppsIcons> {
       width: size,
       height: size,
       fit: BoxFit.cover,
+      cacheWidth: cacheSize,
+      cacheHeight: cacheSize,
     );
   }
 }
