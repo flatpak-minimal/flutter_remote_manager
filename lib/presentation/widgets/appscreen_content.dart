@@ -606,23 +606,12 @@ class AppscreenContent extends StatelessWidget {
       final icons = appdata['icons'] as List<dynamic>?;
 
       if (icons != null) {
-        for (final icon in icons) {
-          if (icon is Map<String, dynamic>) {
-            final type = icon['type'];
+        for (final iconType in ['local', 'remote']) {
+          for (final icon in icons) {
+            if (icon is! Map<String, dynamic>) continue;
+            if (icon['type'] != iconType) continue;
             final path = icon['path']?.toString();
-            if (path == null) continue;
-            if (type == 'cached') {
-              final fullPath =
-                  '/var/lib/flatpak/appstream/flathub/x86_64/active/icons/128x128/$path';
-              if (File(fullPath).existsSync()) return fullPath;
-            } else if (type == 'remote') {
-              return path;
-            }
-          }
-        }
-        for (final icon in icons) {
-          if (icon is Map<String, dynamic> && icon['type'] == 'remote') {
-            return icon['path']?.toString();
+            if (path != null) return path;
           }
         }
       }
