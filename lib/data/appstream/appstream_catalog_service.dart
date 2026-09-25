@@ -16,8 +16,13 @@ class AppstreamComponentInfo {
   final String description;
   final String developer;
   final List<String> categories;
-  final String iconUrl;
-  final List<String> screenshots;
+
+  /// `{'type': 'local'|'remote', 'path': <file path or URL>}` entries.
+  final List<Map<String, String>> icons;
+
+  /// `{'images': [{'url', 'width'}]}` per screenshot.
+  final List<Map<String, dynamic>> screenshots;
+
   final String contentRatingType;
   final Map<String, String> contentRating;
 
@@ -27,7 +32,7 @@ class AppstreamComponentInfo {
     this.description = '',
     this.developer = '',
     this.categories = const [],
-    this.iconUrl = '',
+    this.icons = const [],
     this.screenshots = const [],
     this.contentRatingType = '',
     this.contentRating = const {},
@@ -56,6 +61,11 @@ class AppstreamCatalogService {
   static final AppstreamCatalogService instance = AppstreamCatalogService._();
 
   final Map<String, Future<CatalogDatabase?>> _catalogs = {};
+
+  /// `<installationBase>::<remote>` -> the exported `icons/` directory
+  /// beside that remote's AppStream XML.
+  final Map<String, String> _iconDirs = {};
+
   bool _initialized = false;
 
   void _ensureInitialized() {
@@ -71,8 +81,11 @@ class AppstreamCatalogService {
   }
 
   String get _cacheRoot {
-    final home = Platform.environment['HOME'] ?? '.';
-    return '$home/.cache/agl-store/appstream';
+    // $HOME/.cache is a tmpfs inside the flatpak sandbox; XDG_CACHE_HOME is
+    // the cache directory that persists, so the catalog is parsed once.
+    final base = Platform.environment['XDG_CACHE_HOME'] ??
+        '${Platform.environment['HOME'] ?? '.'}/.cache';
+    return '$base/agl-store/appstream';
   }
 
   /// Locate flatpak's own cached AppStream XML for [remote] under
@@ -82,26 +95,30 @@ class AppstreamCatalogService {
   /// the older flat/`*.xml.gz` layouts.
   String? _findRemoteAppstreamXml(String installationBase, String remote) {
     const archCandidates = ['x86_64', 'aarch64'];
+    final key = '$installationBase::$remote';
     for (final arch in archCandidates) {
-      final activeXml = File(
-        '$installationBase/appstream/$remote/$arch/active/appstream.xml',
-      );
-      if (activeXml.existsSync()) return activeXml.path;
+      final base = '$installationBase/appstream/$remote/$arch';
 
-      final flatXml = File(
-        '$installationBase/appstream/$remote/$arch/appstream.xml',
-      );
-      if (flatXml.existsSync()) return flatXml.path;
+      final activeXml = File('$base/active/appstream.xml');
+      if (activeXml.existsSync()) {
+        _iconDirs[key] = '$base/active/icons';
+        return activeXml.path;
+      }
 
-      final gz = File(
-        '$installationBase/appstream/$remote/$arch/appstream.xml.gz',
-      );
+      final flatXml = File('$base/appstream.xml');
+      if (flatXml.existsSync()) {
+        _iconDirs[key] = '$base/icons';
+        return flatXml.path;
+      }
+
+      final gz = File('$base/appstream.xml.gz');
       if (gz.existsSync()) {
         try {
           final decoded = gzip.decode(gz.readAsBytesSync());
           final cacheDir = Directory(_cacheRoot)..createSync(recursive: true);
           final outFile = File('${cacheDir.path}/${remote}_$arch.xml');
           outFile.writeAsBytesSync(decoded);
+          _iconDirs[key] = '$base/icons';
           return outFile.path;
         } catch (e) {
           debugPrint(
@@ -175,6 +192,47 @@ class AppstreamCatalogService {
     }
   }
 
+  /// Most components declare only a `stock` icon, whose value is a bare id
+  /// rather than a path, but flatpak still exports `<id>.png` beside the
+  /// AppStream XML - so prefer that file and fall back to a remote URL.
+  List<Map<String, String>> _iconsFor(
+    List<ComponentIconRow> rows,
+    String componentId,
+    String? iconsDir,
+  ) {
+    if (iconsDir != null) {
+      final names = [
+        for (final row in rows)
+          if (!row.value.startsWith('http') && row.value.contains('.'))
+            row.value,
+        '$componentId.png',
+      ];
+      for (final size in ['128x128', '64x64']) {
+        for (final name in names) {
+          final file = File('$iconsDir/$size/$name');
+          if (file.existsSync()) {
+            return [
+              {'type': 'local', 'path': file.path},
+            ];
+          }
+        }
+      }
+    }
+
+    ComponentIconRow? remote;
+    for (final row in rows) {
+      if (row.value.startsWith('http') &&
+          (remote == null || (row.width ?? 0) > (remote.width ?? 0))) {
+        remote = row;
+      }
+    }
+    return remote == null
+        ? const []
+        : [
+            {'type': 'remote', 'path': remote.value},
+          ];
+  }
+
   /// Look up display metadata for [appId] within [remote]'s catalog.
   /// Returns [AppstreamComponentInfo.empty] if no catalog could be built
   /// or the component isn't present (never throws).
@@ -200,14 +258,29 @@ class AppstreamCatalogService {
         for (final row in ratingRows) row.attrId: row.value,
       };
 
+      // Grouped by screenshot so the UI picks the widest image of each one
+      // instead of showing every source and thumbnail.
+      final byScreenshot = <int, List<Map<String, dynamic>>>{};
+      for (final image in detail.screenshotImages) {
+        byScreenshot
+            .putIfAbsent(image.screenshotId, () => [])
+            .add({'url': image.url, 'width': image.width ?? 0});
+      }
+
       return AppstreamComponentInfo(
         name: component.name,
         summary: component.summary ?? '',
         description: component.description ?? '',
         developer: component.developerName ?? '',
         categories: detail.categories,
-        iconUrl: detail.icons.isNotEmpty ? detail.icons.first.value : '',
-        screenshots: detail.screenshotImages.map((s) => s.url).toList(),
+        icons: _iconsFor(
+          detail.icons,
+          component.id,
+          _iconDirs['$installationBase::$remote'],
+        ),
+        screenshots: [
+          for (final images in byScreenshot.values) {'images': images},
+        ],
         contentRatingType: component.contentRatingType ?? '',
         contentRating: contentRating,
       );
@@ -227,6 +300,8 @@ class AppstreamCatalogService {
 /// having to touch that presentation-layer code.
 String encodeAppdataJson(AppstreamComponentInfo info) => jsonEncode({
       'description': info.description,
+      'icons': info.icons,
+      'screenshots': info.screenshots,
     });
 
 String encodeMetadataJson(AppstreamComponentInfo info) => jsonEncode({
