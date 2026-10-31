@@ -166,7 +166,7 @@ packages:
     description:
       path: "."
       ref: "aw/host-launch-env"
-      resolved-ref: d33aca7514c19e1a302b186f180740a913ac36f9
+      resolved-ref: ccfeef9ca547e1c1c52924f414093752fe097f7a
       url: "https://github.com/flatpak-minimal/flatpak_dart.git"
     source: git
     version: "0.3.0"
