@@ -249,7 +249,7 @@ class FlatpakLocalDataSourceImpl implements FlatpakLocalDataSource {
   ) async {
     try {
       final refs = await _client.remotes
-          .listApps(remoteId, includeRuntimes: false)
+          .listApps(remoteId, includeRuntimes: false, waylandOnly: true)
           .toList();
       // Same rationale as `getApplicationsInstalled`: the remote's
       // AppStream catalog is built/cached once (see
