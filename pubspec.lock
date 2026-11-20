@@ -165,11 +165,11 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "wip/flutter-ics-testing"
-      resolved-ref: "800aa22add231dcd0a228dd9baa95080e720d403"
+      ref: main
+      resolved-ref: f7f66055be3d0fcbe928275b32ebc51468ee734e
       url: "https://github.com/flatpak-minimal/flatpak_dart.git"
     source: git
-    version: "0.1.2"
+    version: "0.3.0"
   flutter:
     dependency: "direct main"
     description: flutter
