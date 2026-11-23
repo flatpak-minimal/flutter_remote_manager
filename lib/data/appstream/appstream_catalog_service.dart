@@ -133,22 +133,29 @@ class AppstreamCatalogService {
   Future<CatalogDatabase?> _catalogFor(
     String installationBase,
     String remote,
+    Future<bool> Function(String remote)? fetch,
   ) {
     final key = '$installationBase::$remote';
     return _catalogs.putIfAbsent(
       key,
-      () => _buildCatalog(installationBase, remote),
+      () => _buildCatalog(installationBase, remote, fetch),
     );
   }
 
   Future<CatalogDatabase?> _buildCatalog(
     String installationBase,
     String remote,
+    Future<bool> Function(String remote)? fetch,
   ) async {
     _ensureInitialized();
     if (!_initialized) return null;
 
-    final xmlPath = _findRemoteAppstreamXml(installationBase, remote);
+    var xmlPath = _findRemoteAppstreamXml(installationBase, remote);
+    // flatpak only caches a remote's catalog once something asks for it, so a
+    // new installation has none.
+    if (xmlPath == null && fetch != null && await fetch(remote)) {
+      xmlPath = _findRemoteAppstreamXml(installationBase, remote);
+    }
     if (xmlPath == null) {
       debugPrint(
         '[AppstreamCatalogService] No cached AppStream XML found for '
@@ -235,13 +242,16 @@ class AppstreamCatalogService {
 
   /// Look up display metadata for [appId] within [remote]'s catalog.
   /// Returns [AppstreamComponentInfo.empty] if no catalog could be built
-  /// or the component isn't present (never throws).
+  /// or the component isn't present (never throws). When [remote] has no
+  /// catalog on disk yet, [fetch] is called once to download it; it returns
+  /// whether it did.
   Future<AppstreamComponentInfo> lookup({
     required String installationBase,
     required String remote,
     required String appId,
+    Future<bool> Function(String remote)? fetch,
   }) async {
-    final db = await _catalogFor(installationBase, remote);
+    final db = await _catalogFor(installationBase, remote, fetch);
     if (db == null) return AppstreamComponentInfo.empty;
 
     try {

@@ -3,6 +3,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flatpak_dart/flatpak_dart.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../helpers/errors_exception.dart';
 import '../appstream/appstream_catalog_service.dart';
@@ -174,7 +175,24 @@ class FlatpakLocalDataSourceImpl implements FlatpakLocalDataSource {
       installationBase: _userInstallationBase,
       remote: remote,
       appId: appId,
+      fetch: _fetchAppstream,
     );
+  }
+
+  /// Downloads [remote]'s AppStream catalog into the user installation.
+  /// A disabled remote is skipped: fetching from it can only fail, and may
+  /// first wait for its host to time out.
+  Future<bool> _fetchAppstream(String remote) async {
+    try {
+      final remotes = await _client.listRemotes();
+      final match = remotes.where((r) => r.name == remote);
+      if (match.isEmpty || match.first.disabled) return false;
+      await _client.appStream.refresh(remote);
+      return true;
+    } catch (e) {
+      debugPrint('[FlatpakLocalData] AppStream fetch for "$remote" failed: $e');
+      return false;
+    }
   }
 
   @override
