@@ -269,6 +269,18 @@ class FlatpakLocalDataSourceImpl implements FlatpakLocalDataSource {
       final refs = await _client.remotes
           .listApps(remoteId, includeRuntimes: false, waylandOnly: true)
           .toList();
+      // Without its catalog the store has no names, icons or categories to
+      // show: count the remote as failed, so that loading it is retried.
+      if (refs.isNotEmpty &&
+          !await _appstream.hasCatalog(
+            installationBase: _installationBase,
+            remote: remoteId,
+            fetch: _fetchAppstream,
+          )) {
+        throw PlatformException(
+          'Could not get the app catalog of "$remoteId"',
+        );
+      }
       // Same rationale as `getApplicationsInstalled`: the remote's
       // AppStream catalog is built/cached once (see
       // `AppstreamCatalogService._catalogFor`), so the per-app lookups

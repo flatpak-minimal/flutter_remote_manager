@@ -136,11 +136,33 @@ class AppstreamCatalogService {
     Future<bool> Function(String remote)? fetch,
   ) {
     final key = '$installationBase::$remote';
-    return _catalogs.putIfAbsent(
-      key,
-      () => _buildCatalog(installationBase, remote, fetch),
+    final cached = _catalogs[key];
+    if (cached != null) return cached;
+    final built = _buildCatalog(installationBase, remote, fetch);
+    _catalogs[key] = built;
+    // A remote with no catalog yet (no network on the first start) is tried
+    // again on the next lookup, not only after a restart.
+    void forget() {
+      if (identical(_catalogs[key], built)) _catalogs.remove(key);
+    }
+
+    built.then<void>(
+      (db) {
+        if (db == null) forget();
+      },
+      onError: (Object _) => forget(),
     );
+    return built;
   }
+
+  /// Whether a catalog of [remote] can be had, fetching it when none is
+  /// cached yet. After false, the next call tries again.
+  Future<bool> hasCatalog({
+    required String installationBase,
+    required String remote,
+    Future<bool> Function(String remote)? fetch,
+  }) async =>
+      await _catalogFor(installationBase, remote, fetch) != null;
 
   Future<CatalogDatabase?> _buildCatalog(
     String installationBase,
