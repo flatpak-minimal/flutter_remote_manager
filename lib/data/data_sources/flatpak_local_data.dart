@@ -3,6 +3,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flatpak_dart/flatpak_dart.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../helpers/errors_exception.dart';
 import '../appstream/appstream_catalog_service.dart';
@@ -11,11 +12,14 @@ import '../models/installation_model.dart';
 import '../models/remote_model.dart';
 import 'flatpak_event_data.dart';
 
-/// Holds the two `flatpak_dart` clients the app needs: a user-scoped one
-/// (used for essentially everything - installs, launches, browsing) and a
-/// system-scoped one (used only to surface the system installation's
-/// remotes in the system-info screen, mirroring what the old
-/// `getSystemInstallations()` pigeon call exposed).
+/// Holds the two `flatpak_dart` clients the app needs: a system-scoped one
+/// for installs, launches and browsing, and a user-scoped one used only to
+/// surface the user installation's remotes in the system-info screen.
+///
+/// Apps go into the system installation because the app is sandboxed:
+/// flatpak-system-helper deploys them on the host and runs the apply_extra
+/// step of extra-data apps (Chrome) there. A user installation would run
+/// that step in this sandbox, which cannot run the bwrap it needs.
 class FlatpakClients {
   final FlatpakClient user;
   final FlatpakClient system;
@@ -61,7 +65,7 @@ class FlatpakLocalDataSourceImpl implements FlatpakLocalDataSource {
     AppstreamCatalogService? appstream,
   }) : _appstream = appstream ?? AppstreamCatalogService.instance;
 
-  FlatpakClient get _client => _clients.user;
+  FlatpakClient get _client => _clients.system;
 
   // ── System info ─────────────────────────────────────────────────────
   //
@@ -121,7 +125,7 @@ class FlatpakLocalDataSourceImpl implements FlatpakLocalDataSource {
   @override
   Future<InstallationModel> getUserInstallation() async {
     try {
-      final remotes = await _client.listRemotes();
+      final remotes = await _clients.user.listRemotes();
       return InstallationModel.forScope(
         isUser: true,
         remotes: remotes.map(RemoteModel.fromFlatpakRemote).toList(),
@@ -157,13 +161,10 @@ class FlatpakLocalDataSourceImpl implements FlatpakLocalDataSource {
 
   // ── Application discovery ──────────────────────────────────────────
 
-  String get _userInstallationBase {
-    final home = Platform.environment['HOME'] ?? '.';
-    final xdgDataHome = Platform.environment['XDG_DATA_HOME'];
-    return xdgDataHome != null
-        ? '$xdgDataHome/flatpak'
-        : '$home/.local/share/flatpak';
-  }
+  /// The system installation [_client] works on; libflatpak reads
+  /// FLATPAK_SYSTEM_DIR the same way.
+  String get _installationBase =>
+      Platform.environment['FLATPAK_SYSTEM_DIR'] ?? '/var/lib/flatpak';
 
   Future<AppstreamComponentInfo> _lookupAppstream(
     String remote,
@@ -171,10 +172,27 @@ class FlatpakLocalDataSourceImpl implements FlatpakLocalDataSource {
   ) {
     if (remote.isEmpty) return Future.value(AppstreamComponentInfo.empty);
     return _appstream.lookup(
-      installationBase: _userInstallationBase,
+      installationBase: _installationBase,
       remote: remote,
       appId: appId,
+      fetch: _fetchAppstream,
     );
+  }
+
+  /// Downloads [remote]'s AppStream catalog into the system installation.
+  /// A disabled remote is skipped: fetching from it can only fail, and may
+  /// first wait for its host to time out.
+  Future<bool> _fetchAppstream(String remote) async {
+    try {
+      final remotes = await _client.listRemotes();
+      final match = remotes.where((r) => r.name == remote);
+      if (match.isEmpty || match.first.disabled) return false;
+      await _client.appStream.refresh(remote);
+      return true;
+    } catch (e) {
+      debugPrint('[FlatpakLocalData] AppStream fetch for "$remote" failed: $e');
+      return false;
+    }
   }
 
   @override
@@ -249,8 +267,20 @@ class FlatpakLocalDataSourceImpl implements FlatpakLocalDataSource {
   ) async {
     try {
       final refs = await _client.remotes
-          .listApps(remoteId, includeRuntimes: false)
+          .listApps(remoteId, includeRuntimes: false, waylandOnly: true)
           .toList();
+      // Without its catalog the store has no names, icons or categories to
+      // show: count the remote as failed, so that loading it is retried.
+      if (refs.isNotEmpty &&
+          !await _appstream.hasCatalog(
+            installationBase: _installationBase,
+            remote: remoteId,
+            fetch: _fetchAppstream,
+          )) {
+        throw PlatformException(
+          'Could not get the app catalog of "$remoteId"',
+        );
+      }
       // Same rationale as `getApplicationsInstalled`: the remote's
       // AppStream catalog is built/cached once (see
       // `AppstreamCatalogService._catalogFor`), so the per-app lookups

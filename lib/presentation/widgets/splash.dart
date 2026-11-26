@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
@@ -30,6 +33,10 @@ class _SplashScreenState extends State<SplashScreen>
   bool _hasError = false;
   String _errorMessage = '';
   int _retryCount = 0;
+
+  /// The next automatic retry after a failed load, and how long it waits.
+  Timer? _retryTimer;
+  Duration _retryDelay = Duration.zero;
 
   static const Map<String, List<String>> categories = {
     'Popular Apps': [
@@ -201,22 +208,26 @@ class _SplashScreenState extends State<SplashScreen>
         _loadingMessage = 'Error occurred';
       });
 
-      // Retry logic with backoff
+      // Retry with a back-off: 2 s, 4 s, 8 s, ... up to a minute. A first
+      // start may have no network yet.
       _retryCount++;
-      if (_retryCount < 3) {
-        final retryDelay = Duration(seconds: 2 * _retryCount);
-        debugPrint('[SplashScreen] Retrying in ${retryDelay.inSeconds} seconds (attempt $_retryCount/3)...');
-
-        await Future.delayed(retryDelay);
+      final retryDelay = Duration(seconds: min(60, 2 << min(_retryCount - 1, 5)));
+      debugPrint('[SplashScreen] Retrying in ${retryDelay.inSeconds} seconds (attempt $_retryCount)...');
+      setState(() => _retryDelay = retryDelay);
+      _retryTimer?.cancel();
+      _retryTimer = Timer(retryDelay, () {
         if (mounted) {
           _splashInit();
         }
-      } else {
-        setState(() {
-          _errorMessage = 'Failed to initialize after 3 attempts. Please restart the app.';
-        });
-      }
+      });
     }
+  }
+
+  /// Retry at once rather than when the back-off ends.
+  void _retryNow() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _splashInit();
   }
 
   Future<void> _loadAllCategories() async {
@@ -360,11 +371,11 @@ class _SplashScreenState extends State<SplashScreen>
                               textAlign: TextAlign.center,
                             ),
                           ),
-                          if (_hasError && _retryCount < 3)
+                          if (_hasError) ...[
                             Padding(
                               padding: EdgeInsets.only(top: Responsive.scale(context, 8)),
                               child: Text(
-                                'Retrying... (attempt $_retryCount/3)',
+                                'Trying again in ${_retryDelay.inSeconds} s',
                                 style: TextStyle(
                                   fontSize: Responsive.fontSize(context, 11),
                                   color: Colors.orange.withValues(alpha: 0.7),
@@ -372,6 +383,14 @@ class _SplashScreenState extends State<SplashScreen>
                                 ),
                               ),
                             ),
+                            Padding(
+                              padding: EdgeInsets.only(top: Responsive.scale(context, 8)),
+                              child: TextButton(
+                                onPressed: _retryNow,
+                                child: const Text('Retry now'),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -387,6 +406,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
+    _retryTimer?.cancel();
     _animationController.dispose();
     _fadeController.dispose();
     _subtitleController.dispose();
